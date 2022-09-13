@@ -88,16 +88,37 @@ function commitWork(fiber) {
   if (!fiber) {
     return
   }
-  const domParent = fiber.parent.dom
+
+  // MEMO: 関数コンポーネントの場合、`dom`が存在しない
+  //       そのため、親の`dom`操作対象のDOMとする
+  let domParentFiber = fiber.parent
+  while (!domParentFiber.dom) {
+    domParentFiber = domParentFiber.parent
+  }
+  const domParent = domParentFiber.dom
+
   if (fiber.effectTag === "PLACEMENT" && fiber.dom != null) {
     domParent.appendChild(fiber.dom)
   } else if (fiber.effectTag === "UPDATE" && fiber.dom != null) {
     updateDom(fiber.dom, fiber.alternate.props, fiber.props)
   } else if (fiber.effectTag === "DELETION") {
-    domParent.removeChild(fiber.dom)
+    commitDeletion(fiber, domParent)
   }
   commitWork(fiber.child)
   commitWork(fiber.sibling)
+}
+
+/**
+ * 任意のFiber Nodeを元にDOMを削除する
+ * 関数コンポーネントが加わったことで、任意のFiber Nodeが`dom`を持たないケースが出てきた
+ * そのため、`dom`が存在しない場合は、親の`dom`を探して削除する
+ */
+function commitDeletion(fiber, domParent) {
+  if (fiber.dom) {
+    domParent.removeChild(fiber.dom)
+  } else {
+    commitDeletion(fiber.child, domParent)
+  }
 }
 
 function render(element, container) {
@@ -150,12 +171,10 @@ function performUnitOfWork(fiber) {
     updateHostComponent(fiber)
   }
 
-  const elements = fiber.props.children
-  reconcileChildren(fiber, elements)
-
   if (fiber.child) {
     return fiber.child
   }
+
   let nextFiber = fiber
   while (nextFiber) {
     if (nextFiber.sibling) {
@@ -165,11 +184,53 @@ function performUnitOfWork(fiber) {
   }
 }
 
+/** 処置途中の関数コンポーネントのFiber Node */
+let wipFiber = null
+/** 処置途中の関数コンポーネントのFiber NodeのHookのIndex */
+let hookIndex = null
+
+/** 関数コンポーネントのFiber Nodeを更新する */
 function updateFunctionComponent(fiber) {
+  wipFiber = fiber
+  hookIndex = 0
+  wipFiber.hooks = []
   const children = [fiber.type(fiber.props)]
   reconcileChildren(fiber, children)
 }
 
+/**
+ * Reactの`useState`を再現したもの
+ * 現状は`setState`の引数は関数のみ対応
+ */
+function useState(initial) {
+  const oldHook = wipFiber?.alternate?.hooks[hookIndex]
+  const hook = {
+    state: oldHook?.state ?? initial,
+    queue: []
+  }
+
+  const actions = oldHook?.queue ?? []
+  actions.forEach(action => {
+    hook.state = action(hook.state)
+  })
+
+  const setState = action => {
+    hook.queue.push(action)
+    wipRoot = {
+      dom: currentRoot.dom,
+      props: currentRoot.props,
+      alternate: currentRoot
+    }
+    nextUnitOfWork = wipRoot
+    deletions = []
+  }
+
+  wipFiber.hooks.push(hook)
+  hookIndex++
+  return [hook.state, setState]
+}
+
+/** ネイティブタグのFiber Nodeを更新する */
 function updateHostComponent(fiber) {
   if (!fiber.dom) {
     fiber.dom = createDom(fiber)
@@ -182,14 +243,14 @@ function updateHostComponent(fiber) {
  */
 function reconcileChildren(wipFiber, elements) {
   let index = 0
-  let oldFiber = wipFiber.alternate && wipFiber.alternate.child
+  let oldFiber = wipFiber?.alternate?.child
   let prevSibling = null
 
   while (index < elements.length || oldFiber != null) {
     const element = elements[index]
     let newFiber = null
 
-    const sameType = oldFiber && element && element.type == oldFiber.type
+    const sameType = oldFiber && element?.type == oldFiber.type
 
     if (sameType) {
       newFiber = {
@@ -234,24 +295,20 @@ function reconcileChildren(wipFiber, elements) {
 const Didact = {
   createElement,
   render,
+  useState,
 }
 
 // MEMO: Babelがトランスパイルする時に、定義した関数を使うようにする。
 /** @jsx Didact.createElement */
-const container = document.getElementById("root")
-
-const updateValue = e => {
-  rerender(e.target.value)
-}
-
-const rerender = value => {
-  const element = (
-    <div>
-      <input onInput={updateValue} value={value} />
-      <h2>Hello {value}</h2>
-    </div>
+function Counter() {
+  const [state, setState] = Didact.useState(1)
+  return (
+    <h1 onClick={() => setState(c => c + 1)} style="user-select: none">
+      Count: {state}
+    </h1>
   )
-  Didact.render(element, container)
 }
 
-rerender("World")
+const element = <Counter />
+const container = document.getElementById("root")
+Didact.render(element, container)
