@@ -1,27 +1,17 @@
 {
-  "name": "didact-2",
+  "name": "build-your-own-react",
   "version": "1.0.0",
-  "description": "",
-  "keywords": [],
-  "main": "src/index.js",
-  "dependencies": {
-    "react": "16.8.6",
-    "react-dom": "16.8.6",
-    "react-scripts": "3.0.1"
+  "repository": "https://github.com/youchann/build_your_own_react.git",
+  "license": "MIT",
+  "scripts": {
+    "build": "webpack --colors --config ./webpack.config.js"
   },
   "devDependencies": {
-    "typescript": "3.3.3"
-  },
-  "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test --env=jsdom",
-    "eject": "react-scripts eject"
-  },
-  "browserslist": [
-    ">0.2%",
-    "not dead",
-    "not ie <= 11",
-    "not op_mini all"
-  ]
+    "@types/react": "^16.9.17",
+    "prettier": "^1.19.1",
+    "ts-loader": "^6.2.1",
+    "typescript": "^3.7.4",
+    "webpack": "^4.41.4",
+    "webpack-cli": "^3.3.10"
+  }
 }
