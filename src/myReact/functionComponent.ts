@@ -28,8 +28,9 @@ function useState(global: DidactGlobalState) {
       throw new Error('wipFiber is invalid')
     }
 
-    const oldHook = wipFiber?.alternate?.hooks && wipFiber.alternate.hooks[hookIndex]
-    const hook: Hook<T> = {
+    const oldHook = wipFiber?.alternate?.hooks && (wipFiber.alternate.hooks[hookIndex] as UseStateHook<T>)
+    const hook: UseStateHook<T> = {
+      type: 'useState',
       state: oldHook?.state ?? initial,
       queue: []
     }
@@ -56,4 +57,30 @@ function useState(global: DidactGlobalState) {
   }
 }
 
-export { updateFunctionComponent, useState }
+function useEffect(effect: UseEffectHook['effect'], deps?: UseEffectHook['deps']) {
+  if (wipFiber === null || wipFiber.hooks === undefined) {
+    throw new Error('wipFiber is invalid')
+  }
+
+  const oldHook = wipFiber?.alternate?.hooks && (wipFiber.alternate.hooks[hookIndex] as UseEffectHook)
+  let cleanup: UseEffectHook['cleanup'] = oldHook?.cleanup
+  if (deps === undefined) {
+    cleanup = effect() as UseEffectHook['cleanup']
+  } else {
+    const noChanged = oldHook?.deps?.every((dep, i) => dep[i] === deps[i])
+    if (!noChanged) {
+      cleanup = effect() as UseEffectHook['cleanup']
+    }
+  }
+
+  const hook: UseEffectHook = {
+    type: 'useEffect',
+    effect,
+    deps,
+    cleanup: typeof cleanup === 'function' ? cleanup : undefined
+  }
+  wipFiber.hooks.push(hook)
+  hookIndex++
+}
+
+export { updateFunctionComponent, useState, useEffect }

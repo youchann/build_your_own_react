@@ -1,5 +1,5 @@
 import { createElement, updateDom } from './dom'
-import { updateFunctionComponent, useState } from './functionComponent'
+import { updateFunctionComponent, useEffect, useState } from './functionComponent'
 import { updateHostComponent } from './hostComponent'
 
 /** この値を元にDidactはDOMのレンダリングを行う */
@@ -54,6 +54,11 @@ function commitWork(fiber?: Fiber) {
  * そのため、`dom`が存在しない場合は、親の`dom`を探して削除する
  */
 function commitDeletion(fiber: Fiber, domParent: HTMLElement) {
+  for (const hook of fiber.hooks || []) {
+    if (hook.type === 'useEffect' && hook.cleanup) {
+      hook.cleanup()
+    }
+  }
   if (fiber.dom) {
     domParent.removeChild(fiber.dom)
   } else {
@@ -121,5 +126,6 @@ function performUnitOfWork(fiber: Fiber): Fiber | null {
 export default {
   createElement,
   render,
-  useState: useState(global)
+  useState: useState(global),
+  useEffect
 }
