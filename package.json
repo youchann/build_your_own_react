@@ -4,7 +4,8 @@
   "repository": "https://github.com/youchann/build_your_own_react.git",
   "license": "MIT",
   "scripts": {
-    "build": "webpack --colors --config ./webpack.config.js"
+    "build": "webpack --colors --config ./webpack.config.js",
+    "dev": "webpack --watch --colors --config ./webpack.config.js"
   },
   "devDependencies": {
     "@types/react": "^16.9.17",
